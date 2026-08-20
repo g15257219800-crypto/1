@@ -254,10 +254,8 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
-def _panel_grid(inner_l: float, inner_w: float) -> cq.Workplane:
-    """4 horizontal bars (5 rows) and staggered verticals, from the face photo."""
-    z = P_FLOOR
-    h = P_H - P_FLOOR - 0.8
+def _panel_grid(inner_l: float, inner_w: float, z: float, h: float) -> cq.Workplane:
+    """4 horizontal bars (5 rows) and staggered verticals on one face."""
     t = P_RIB_T
     row_h = inner_w / 5.0
     bars = []
@@ -270,7 +268,6 @@ def _panel_grid(inner_l: float, inner_w: float) -> cq.Workplane:
             .rect(inner_l + 0.6, t)
             .extrude(h)
         )
-    # Two verticals per row; offsets match the staggered photo.
     offsets = (
         (-0.28, 0.28),
         (-0.20, 0.24),
@@ -317,12 +314,15 @@ def _u_handle(x: float, y: float, open_y: float) -> cq.Workplane:
 def build_p633484() -> cq.Assembly:
     inner_l = P_LEN - 2 * P_WALL
     inner_w = P_WID - 2 * P_WALL
-    media_h = P_H - P_FLOOR - 6.0
+    grid_h = 3.4
+    media_z = 1.0
+    media_h = P_H - 2.0
 
     frame = cq.Workplane("XY").rect(P_LEN, P_WID).extrude(P_H)
     frame = _fillet_vertical(frame, P_CORNER_R)
+    # Open both faces so media shows through (not a closed tray).
     frame = frame.cut(
-        cq.Workplane("XY").workplane(offset=P_FLOOR).rect(inner_l, inner_w).extrude(P_H)
+        cq.Workplane("XY").workplane(offset=-1.0).rect(inner_l, inner_w).extrude(P_H + 2.0)
     )
 
     # Outer-wall channel (side-profile photo).
@@ -445,7 +445,9 @@ def build_p633484() -> cq.Assembly:
             )
     frame = frame.cut(_union(pockets))
 
-    grid = _panel_grid(inner_l, inner_w)
+    grid_top = _panel_grid(inner_l, inner_w, z=P_H - grid_h, h=grid_h)
+    grid_bot = _panel_grid(inner_l, inner_w, z=0.4, h=grid_h)
+    grid = grid_top.union(grid_bot)
 
     hy = inner_w / 2.0 - 1.6
     handles = _u_handle(0.0, hy, open_y=-1.0).union(_u_handle(0.0, -hy, open_y=1.0))
@@ -467,20 +469,29 @@ def build_p633484() -> cq.Assembly:
 
     media = (
         cq.Workplane("XY")
-        .workplane(offset=P_FLOOR)
-        .rect(inner_l - 1.0, inner_w - 1.0)
+        .workplane(offset=media_z)
+        .rect(inner_l - 0.8, inner_w - 0.8)
         .extrude(media_h)
     )
     n = int(inner_l / P_PLEAT_PITCH)
     x0 = -inner_l / 2.0 + P_PLEAT_PITCH
     pleat_list = []
     for i in range(max(n - 1, 1)):
+        x = x0 + i * P_PLEAT_PITCH
+        # Pleat texture on both faces, kept inside 0–37.5 mm.
         pleat_list.append(
             cq.Workplane("XY")
-            .workplane(offset=P_FLOOR + media_h - 0.15)
-            .center(x0 + i * P_PLEAT_PITCH, 0)
+            .workplane(offset=P_H - 1.2)
+            .center(x, 0)
             .rect(1.3, inner_w - 3.0)
-            .extrude(P_PLEAT_H)
+            .extrude(1.1)
+        )
+        pleat_list.append(
+            cq.Workplane("XY")
+            .workplane(offset=0.0)
+            .center(x, 0)
+            .rect(1.3, inner_w - 3.0)
+            .extrude(1.1)
         )
     pleats = _union(pleat_list)
 
