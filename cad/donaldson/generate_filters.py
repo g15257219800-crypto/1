@@ -65,10 +65,15 @@ P_SEAL_W = 6.0
 P_PLEAT_PITCH = 4.5
 P_PLEAT_H = 2.2
 # Circular-section U-pipes on the long inner edges (photo of the cream face).
+# Ends are in the inner wall; the long bar sits inward over the media.
 P_PIPE_R = 2.0
 P_PIPE_LEN = 88.0
 P_PIPE_DEPTH = 22.0
 P_PIPE_CORNER = 6.0
+# Rectangular pads where each pipe end meets the inner wall.
+P_PAD_X = 12.0
+P_PAD_Y = 3.6
+P_PAD_Z = 6.5
 # Recess media so the pipes sit just above the pleats, still under the 37.5 envelope.
 P_MEDIA_TOP = P_H - 6.8
 
@@ -344,27 +349,50 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
-def _pipe_u_handle(y_bar: float, toward_center: float, z: float) -> cq.Workplane:
-    """Circular-section U-pipe lying on the media face, opening toward the center.
+def _handle_pads(y_wall: float, toward_center: float, z: float) -> cq.Workplane:
+    """Rectangular support faces on the inner wall at each pipe end."""
+    half = P_PIPE_LEN / 2.0
+    # Straddle the inner face: most of the pad in the opening, a little into the wall.
+    y_c = y_wall + toward_center * (P_PAD_Y / 2.0 - 1.2)
+    z0 = z - P_PAD_Z / 2.0
+    pads = None
+    for x in (-half, half):
+        pad = (
+            cq.Workplane("XY")
+            .workplane(offset=z0)
+            .center(x, y_c)
+            .rect(P_PAD_X, P_PAD_Y)
+            .extrude(P_PAD_Z)
+        )
+        pads = pad if pads is None else pads.union(pad)
+    return pads
 
-    Long bar sits on the inner long-side wall; both legs point inward.
+
+def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplane:
+    """Circular-section U-pipe on the media face.
+
+    Pipe ends go into the inner wall; the long bar sits inward over the media.
+    Rectangular pads support the two wall joints.
     """
     half = P_PIPE_LEN / 2.0
     cr = P_PIPE_CORNER
     r = P_PIPE_R
-    y_open = y_bar + toward_center * P_PIPE_DEPTH
-    y_arc = y_bar + toward_center * cr
+    y_bar = y_wall + toward_center * P_PIPE_DEPTH
+    toward_open = -toward_center
+    y_arc = y_bar + toward_open * cr
+    y_end = y_wall - toward_center * 1.5
     long_bar = _round_bar((-half + cr, y_bar, z), (half - cr, y_bar, z), r)
-    left_leg = _round_bar((-half, y_open, z), (-half, y_arc, z), r)
-    right_leg = _round_bar((half, y_open, z), (half, y_arc, z), r)
-    # 90° elbows: same solid as a bent tube. X-dir is the CCW start of the quarter.
-    if toward_center < 0:
+    left_leg = _round_bar((-half, y_end, z), (-half, y_arc, z), r)
+    right_leg = _round_bar((half, y_end, z), (half, y_arc, z), r)
+    # 90° elbows: X-dir is the CCW start of the quarter (from bar toward the wall).
+    if toward_open < 0:
         left_dir, right_dir = (0.0, 1.0), (1.0, 0.0)
     else:
         left_dir, right_dir = (-1.0, 0.0), (0.0, -1.0)
-    left_e = _pipe_elbow_xy(-half + cr, y_bar + toward_center * cr, z, left_dir, cr, r)
-    right_e = _pipe_elbow_xy(half - cr, y_bar + toward_center * cr, z, right_dir, cr, r)
-    return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e)
+    left_e = _pipe_elbow_xy(-half + cr, y_bar + toward_open * cr, z, left_dir, cr, r)
+    right_e = _pipe_elbow_xy(half - cr, y_bar + toward_open * cr, z, right_dir, cr, r)
+    pads = _handle_pads(y_wall, toward_center, z)
+    return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e).union(pads)
 
 
 def build_p633484() -> cq.Assembly:
@@ -518,12 +546,12 @@ def build_p633484() -> cq.Assembly:
         )
     glue = _union(beads)
 
-    # Two circular-pipe U handles on the long inner edges, opening toward center.
-    # Long bar is anchored in the inner wall; legs hover above the recessed media.
+    # Two circular-pipe U handles on the long inner edges.
+    # Ends in the wall (on rectangular pads); long bar toward the media center.
     pipe_z = P_H - 3.5
-    y_inner = inner_w / 2.0 - 0.4
-    handles = _pipe_u_handle(y_inner, -1.0, pipe_z).union(
-        _pipe_u_handle(-y_inner, 1.0, pipe_z)
+    y_wall = inner_w / 2.0
+    handles = _pipe_u_handle(y_wall, -1.0, pipe_z).union(
+        _pipe_u_handle(-y_wall, 1.0, pipe_z)
     )
 
     black = frame.union(channel_ribs).union(latch).union(markings).union(handles)
