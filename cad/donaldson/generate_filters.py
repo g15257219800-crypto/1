@@ -37,13 +37,13 @@ DBA_RING_T = 6.0
 DBA_SQ_RING_R = 55.0
 # Circular-face rings: two concentric ribs between hub and outer rim.
 DBA_CIRC_RING_R = (42.0, 76.0)
-# Two 4-spoke peaked pulls on the circular top (product photo).
+# Two peaked pulls: hollow rectangular base + 4 cylindrical rods to the apex.
 DBA_BOSS_H = 26.0
 DBA_BOSS_SPAN = 36.0
-DBA_BOSS_T = 3.4
 DBA_BOSS_R = 80.0
-DBA_BOSS_PAD_H = 4.0
-DBA_BOSS_POST_H = 7.0
+DBA_BOSS_WALL = 3.6
+DBA_BOSS_FRAME_H = 8.0
+DBA_BOSS_ROD_R = 2.3
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -89,55 +89,52 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
     )
 
 
+def _cyl_between(p0: tuple[float, float, float], p1: tuple[float, float, float], radius: float) -> cq.Workplane:
+    v0 = cq.Vector(*p0)
+    direction = cq.Vector(*p1) - v0
+    solid = cq.Solid.makeCylinder(radius, direction.Length, v0, direction)
+    return cq.Workplane("XY").newObject([solid])
+
+
 def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
-    """Square pad + 4 rectangular posts, then 4 slanted ribs to a peak."""
+    """Hollow rectangular frame with 4 cylindrical spokes meeting at a peak."""
     h = DBA_BOSS_H
-    s = DBA_BOSS_SPAN / 2.0
-    t = DBA_BOSS_T
-    pad_h = DBA_BOSS_PAD_H
-    post_h = DBA_BOSS_POST_H
-    z_fin = z + pad_h + post_h
-    pad = (
+    span = DBA_BOSS_SPAN
+    wall = DBA_BOSS_WALL
+    frame_h = DBA_BOSS_FRAME_H
+    outer = (
         cq.Workplane("XY")
         .workplane(offset=z)
         .center(cx, cy)
-        .rect(DBA_BOSS_SPAN, DBA_BOSS_SPAN)
-        .extrude(pad_h)
+        .rect(span, span)
+        .extrude(frame_h)
     )
-    post_w = 8.0
-    posts = []
-    for dx, dy, sx, sy in (
-        (s, 0.0, post_w, t + 0.6),
-        (-s, 0.0, post_w, t + 0.6),
-        (0.0, s, t + 0.6, post_w),
-        (0.0, -s, t + 0.6, post_w),
-    ):
-        posts.append(
-            cq.Workplane("XY")
-            .workplane(offset=z)
-            .center(cx + dx, cy + dy)
-            .rect(sx, sy)
-            .extrude(pad_h + post_h)
-        )
-    fin_xz = (
-        cq.Workplane("XZ")
-        .workplane(offset=cy - t / 2.0)
-        .moveTo(cx - s, z_fin)
-        .lineTo(cx + s, z_fin)
-        .lineTo(cx, z + h)
-        .close()
-        .extrude(t)
+    inner = (
+        cq.Workplane("XY")
+        .workplane(offset=z - 0.2)
+        .center(cx, cy)
+        .rect(span - 2 * wall, span - 2 * wall)
+        .extrude(frame_h + 0.4)
     )
-    fin_yz = (
-        cq.Workplane("YZ")
-        .workplane(offset=cx - t / 2.0)
-        .moveTo(cy - s, z_fin)
-        .lineTo(cy + s, z_fin)
-        .lineTo(cy, z + h)
-        .close()
-        .extrude(t)
+    frame = outer.cut(inner)
+    inset = wall / 2.0
+    s = span / 2.0 - inset
+    z1 = z + frame_h
+    apex = (cx, cy, z + h)
+    rods = [
+        _cyl_between((cx + dx, cy + dy, z1), apex, DBA_BOSS_ROD_R)
+        for dx, dy in ((s, s), (s, -s), (-s, s), (-s, -s))
+    ]
+    boss = frame.union(_union(rods))
+    # Slanted cylinder ends would poke past the apex; clip to overall height.
+    boss = boss.cut(
+        cq.Workplane("XY")
+        .workplane(offset=z + h)
+        .center(cx, cy)
+        .rect(span + 20.0, span + 20.0)
+        .extrude(20.0)
     )
-    return pad.union(_union(posts)).union(fin_xz).union(fin_yz)
+    return boss
 
 
 def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
