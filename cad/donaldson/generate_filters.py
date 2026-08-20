@@ -38,9 +38,11 @@ DBA_RING_T = 6.0
 DBA_SQ_RING_R = 55.0
 # Circular-face rings: two concentric ribs between hub and outer rim.
 DBA_CIRC_RING_R = (42.0, 76.0)
-DBA_DIAMOND_SIZE = 28.0
-DBA_DIAMOND_WALL = 4.5
-DBA_DIAMOND_H = 7.0
+# Two raised handle bosses on the circular top (product photo / spec sheet).
+DBA_BOSS_H = 20.0
+DBA_BOSS_OD = 38.0
+DBA_BOSS_WALL = 4.5
+DBA_BOSS_R = 68.0
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -87,7 +89,7 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
 
 
 def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
-    """Round face from the top-down photo: rim, 8 spokes, 2 rings, 2 diamonds."""
+    """Round face: rim, 8 spokes, 2 rings, plus two raised hollow bosses."""
     rim = _annulus(z, cyl_r + 0.8, cyl_r - DBA_RIM_W, DBA_SPOKE_H)
     rings = _union(
         [
@@ -107,27 +109,41 @@ def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workpla
             .rect(spoke_len, DBA_SPOKE_W)
             .extrude(DBA_SPOKE_H)
         )
-    diamonds = []
-    r_d = sum(DBA_CIRC_RING_R) / 2.0
-    for ang in (22.5, 202.5):
-        cx = r_d * cos(radians(ang))
-        cy = r_d * sin(radians(ang))
+    bosses = []
+    for ang in (0.0, 180.0):
+        cx = DBA_BOSS_R * cos(radians(ang))
+        cy = DBA_BOSS_R * sin(radians(ang))
+        z_b = z + DBA_SPOKE_H
         outer = (
             cq.Workplane("XY")
             .workplane(offset=z)
-            .transformed(offset=(cx, cy, 0), rotate=(0, 0, ang + 45.0))
-            .rect(DBA_DIAMOND_SIZE, DBA_DIAMOND_SIZE)
-            .extrude(DBA_DIAMOND_H)
+            .center(cx, cy)
+            .polygon(8, DBA_BOSS_OD)
+            .extrude(DBA_SPOKE_H + DBA_BOSS_H)
         )
         inner = (
             cq.Workplane("XY")
-            .workplane(offset=z - 0.2)
-            .transformed(offset=(cx, cy, 0), rotate=(0, 0, ang + 45.0))
-            .rect(DBA_DIAMOND_SIZE - 2 * DBA_DIAMOND_WALL, DBA_DIAMOND_SIZE - 2 * DBA_DIAMOND_WALL)
-            .extrude(DBA_DIAMOND_H + 0.4)
+            .workplane(offset=z_b + 1.5)
+            .center(cx, cy)
+            .polygon(8, DBA_BOSS_OD - 2 * DBA_BOSS_WALL)
+            .extrude(DBA_BOSS_H)
         )
-        diamonds.append(outer.cut(inner))
-    black = _union([rim, rings, *spokes, *diamonds])
+        boss = outer.cut(inner)
+        # Internal vertical fins, as on the standing product photo.
+        fins = []
+        for i in range(4):
+            fa = ang + i * 45.0
+            fins.append(
+                cq.Workplane("XY")
+                .workplane(offset=z_b + 1.5)
+                .transformed(offset=(cx, cy, 0), rotate=(0, 0, fa))
+                .center((DBA_BOSS_OD - 2 * DBA_BOSS_WALL) / 4.0, 0)
+                .rect((DBA_BOSS_OD - 2 * DBA_BOSS_WALL) / 2.0 - 1.5, 2.2)
+                .extrude(DBA_BOSS_H - 1.8)
+            )
+        boss = boss.union(_union(fins))
+        bosses.append(boss)
+    black = _union([rim, rings, *spokes, *bosses])
     hub = (
         cq.Workplane("XY")
         .workplane(offset=z)
@@ -145,6 +161,7 @@ def build_dba5293() -> cq.Assembly:
         - DBA_FRAME_H
         - DBA_COLLAR_H
         - DBA_SPOKE_H
+        - DBA_BOSS_H
     )
     z0 = DBA_LIP_H  # top of gasket lip / bottom of square frame
 
