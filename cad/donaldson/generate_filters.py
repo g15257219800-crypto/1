@@ -42,19 +42,24 @@ DBA_DIAMOND_SIZE = 28.0
 DBA_DIAMOND_WALL = 4.5
 DBA_DIAMOND_H = 7.0
 
-# --- P633484 (safety panel) -------------------------------------------------
+# --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
 P_LEN = 286.0  # X
 P_WID = 265.0  # Y
 P_H = 37.5  # Z
-P_CORNER_R = 6.0
-P_WALL = 8.0
-P_GASKET_Z = 8.0
-P_GASKET_H = 6.0
-P_GASKET_W = 5.0
-P_PLEAT_PITCH = 9.0
-P_PLEAT_H = 4.0
-P_WIRE_D = 3.2
+P_CORNER_R = 8.0
+P_WALL = 14.0
+P_FLOOR = 3.0
+P_RIB_T = 3.6
+P_CHANNEL_Z = 9.0
+P_CHANNEL_H = 16.0
+P_CHANNEL_D = 3.2
+P_SEAL_H = 5.0
+P_SEAL_W = 6.0
+P_PLEAT_PITCH = 4.5
+P_PLEAT_H = 2.2
+P_HANDLE_W = 32.0
+P_HANDLE_D = 11.0
 
 
 def _fillet_vertical(wp: cq.Workplane, radius: float) -> cq.Workplane:
@@ -249,146 +254,242 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
+def _panel_grid(inner_l: float, inner_w: float) -> cq.Workplane:
+    """4 horizontal bars (5 rows) and staggered verticals, from the face photo."""
+    z = P_FLOOR
+    h = P_H - P_FLOOR - 0.8
+    t = P_RIB_T
+    row_h = inner_w / 5.0
+    bars = []
+    for i in range(1, 5):
+        y = -inner_w / 2.0 + i * row_h
+        bars.append(
+            cq.Workplane("XY")
+            .workplane(offset=z)
+            .center(0, y)
+            .rect(inner_l + 0.6, t)
+            .extrude(h)
+        )
+    # Two verticals per row; offsets match the staggered photo.
+    offsets = (
+        (-0.28, 0.28),
+        (-0.20, 0.24),
+        (-0.22, 0.22),
+        (-0.24, 0.18),
+        (-0.12, 0.30),
+    )
+    verts = []
+    for i, (a, b) in enumerate(offsets):
+        y = -inner_w / 2.0 + (i + 0.5) * row_h
+        for frac in (a, b):
+            verts.append(
+                cq.Workplane("XY")
+                .workplane(offset=z)
+                .center(frac * inner_l, y)
+                .rect(t, row_h - 1.2)
+                .extrude(h)
+            )
+    return _union(bars + verts)
+
+
+def _u_handle(x: float, y: float, open_y: float) -> cq.Workplane:
+    """Molded U pull. open_y is +1 or -1, pointing the opening into the media."""
+    z = P_H - 9.0
+    w, d, t = P_HANDLE_W, P_HANDLE_D, 3.2
+    bar = cq.Workplane("XY").workplane(offset=z).center(x, y).rect(w, t).extrude(t)
+    e1 = (
+        cq.Workplane("XY")
+        .workplane(offset=z)
+        .center(x - w / 2 + t / 2, y + open_y * d / 2)
+        .rect(t, d)
+        .extrude(t)
+    )
+    e2 = (
+        cq.Workplane("XY")
+        .workplane(offset=z)
+        .center(x + w / 2 - t / 2, y + open_y * d / 2)
+        .rect(t, d)
+        .extrude(t)
+    )
+    return bar.union(e1).union(e2)
+
+
 def build_p633484() -> cq.Assembly:
     inner_l = P_LEN - 2 * P_WALL
     inner_w = P_WID - 2 * P_WALL
-    floor = 3.5
-    # Keep media, pleats and folded handles inside the 37.5 mm spec height.
-    media_h = 24.0
-    pleat_h = 3.0
+    media_h = P_H - P_FLOOR - 6.0
 
-    frame = (
-        cq.Workplane("XY")
-        .rect(P_LEN, P_WID)
-        .extrude(P_H)
-    )
+    frame = cq.Workplane("XY").rect(P_LEN, P_WID).extrude(P_H)
     frame = _fillet_vertical(frame, P_CORNER_R)
-    pocket = (
-        cq.Workplane("XY")
-        .workplane(offset=floor)
-        .rect(inner_l, inner_w)
-        .extrude(P_H)
+    frame = frame.cut(
+        cq.Workplane("XY").workplane(offset=P_FLOOR).rect(inner_l, inner_w).extrude(P_H)
     )
-    frame = frame.cut(pocket)
 
-    # Groove the outer wall, then fill it with a flush gasket.
+    # Outer-wall channel (side-profile photo).
     groove = (
         cq.Workplane("XY")
-        .workplane(offset=P_GASKET_Z)
+        .workplane(offset=P_CHANNEL_Z)
         .rect(P_LEN + 2.0, P_WID + 2.0)
-        .extrude(P_GASKET_H)
+        .extrude(P_CHANNEL_H)
         .cut(
             cq.Workplane("XY")
-            .workplane(offset=P_GASKET_Z - 0.2)
-            .rect(P_LEN - 2 * P_GASKET_W, P_WID - 2 * P_GASKET_W)
-            .extrude(P_GASKET_H + 0.4)
+            .workplane(offset=P_CHANNEL_Z - 0.2)
+            .rect(P_LEN - 2 * P_CHANNEL_D, P_WID - 2 * P_CHANNEL_D)
+            .extrude(P_CHANNEL_H + 0.4)
         )
     )
     frame = frame.cut(groove)
-    gasket = (
-        cq.Workplane("XY")
-        .workplane(offset=P_GASKET_Z)
-        .rect(P_LEN - 0.4, P_WID - 0.4)
-        .extrude(P_GASKET_H)
-        .cut(
-            cq.Workplane("XY")
-            .workplane(offset=P_GASKET_Z - 0.2)
-            .rect(P_LEN - 2 * P_GASKET_W, P_WID - 2 * P_GASKET_W)
-            .extrude(P_GASKET_H + 0.4)
-        )
+
+    # Trapezoid latch pocket on the +Y wall.
+    latch_cut = (
+        cq.Workplane("XZ")
+        .workplane(offset=P_WID / 2.0 - P_CHANNEL_D - 0.2)
+        .center(0, P_CHANNEL_Z + P_CHANNEL_H / 2.0)
+        .rect(42.0, 12.0)
+        .extrude(P_CHANNEL_D + 1.5)
+    )
+    frame = frame.cut(latch_cut)
+    latch = (
+        cq.Workplane("XZ")
+        .workplane(offset=P_WID / 2.0 - P_CHANNEL_D + 0.4)
+        .center(0, P_CHANNEL_Z + P_CHANNEL_H / 2.0)
+        .moveTo(-10.0, -4.0)
+        .lineTo(10.0, -4.0)
+        .lineTo(7.0, 4.0)
+        .lineTo(-7.0, 4.0)
+        .close()
+        .extrude(2.2)
     )
 
-    # Inset vertical ribs so they stay inside the 286 x 265 envelope.
-    ribs = None
-    rib_w, rib_d, rib_h = 3.0, 1.8, P_H - 12.0
-    inset = 0.9
-    for x in (-P_LEN / 2.0 + inset, P_LEN / 2.0 - inset):
-        for y in (-90.0, -45.0, 0.0, 45.0, 90.0):
-            rib = (
+    # FLOW + arrows, raised in the channel on +Y.
+    markings = None
+    try:
+        txt = (
+            cq.Workplane("XZ")
+            .workplane(offset=P_WID / 2.0 - 1.3)
+            .center(-8.0, P_CHANNEL_Z + P_CHANNEL_H / 2.0)
+            .text("FLOW", 6.5, 0.8, font="DejaVu Sans", kind="bold")
+        )
+        markings = txt
+    except Exception:
+        markings = None
+    arrows = []
+    for x in (-52.0, 36.0):
+        arrows.append(
+            cq.Workplane("XZ")
+            .workplane(offset=P_WID / 2.0 - 1.3)
+            .center(x, P_CHANNEL_Z + P_CHANNEL_H / 2.0)
+            .moveTo(0, 5.0)
+            .lineTo(4.0, -3.5)
+            .lineTo(-4.0, -3.5)
+            .close()
+            .extrude(0.8)
+        )
+    arrow_solids = _union(arrows)
+    if markings is not None:
+        markings = markings.union(arrow_solids)
+    else:
+        markings = arrow_solids
+
+    # Channel ribs around the perimeter, skipping the latch zone.
+    chan_ribs = []
+    pitch = 22.0
+    rib_h, rib_t = P_CHANNEL_H - 1.0, 1.4
+    x = -P_LEN / 2.0 + 18.0
+    while x < P_LEN / 2.0 - 16.0:
+        if abs(x) > 28.0:
+            for y_sign in (-1.0, 1.0):
+                chan_ribs.append(
+                    cq.Workplane("XY")
+                    .workplane(offset=P_CHANNEL_Z + 0.5)
+                    .center(x, y_sign * (P_WID / 2.0 - P_CHANNEL_D / 2.0))
+                    .rect(rib_t, P_CHANNEL_D - 0.4)
+                    .extrude(rib_h)
+                )
+        x += pitch
+    y = -P_WID / 2.0 + 18.0
+    while y < P_WID / 2.0 - 16.0:
+        for x_sign in (-1.0, 1.0):
+            chan_ribs.append(
                 cq.Workplane("XY")
-                .workplane(offset=6.0)
-                .center(x, y)
-                .rect(rib_d, rib_w)
+                .workplane(offset=P_CHANNEL_Z + 0.5)
+                .center(x_sign * (P_LEN / 2.0 - P_CHANNEL_D / 2.0), y)
+                .rect(P_CHANNEL_D - 0.4, rib_t)
                 .extrude(rib_h)
             )
-            ribs = rib if ribs is None else ribs.union(rib)
-    for y in (-P_WID / 2.0 + inset, P_WID / 2.0 - inset):
-        for x in (-100.0, -50.0, 0.0, 50.0, 100.0):
-            rib = (
+        y += pitch
+    channel_ribs = _union(chan_ribs)
+
+    # Recessed pockets on the top rim.
+    pockets = []
+    pw, pl, pd = 7.0, 16.0, 2.2
+    for i in range(8):
+        x = -P_LEN / 2.0 + 24.0 + i * ((P_LEN - 48.0) / 7.0)
+        for y_sign in (-1.0, 1.0):
+            pockets.append(
                 cq.Workplane("XY")
-                .workplane(offset=6.0)
-                .center(x, y)
-                .rect(rib_w, rib_d)
-                .extrude(rib_h)
+                .workplane(offset=P_H - pd)
+                .center(x, y_sign * (P_WID / 2.0 - P_WALL / 2.0))
+                .rect(pl, pw)
+                .extrude(pd + 0.2)
             )
-            ribs = rib if ribs is None else ribs.union(rib)
+    for i in range(7):
+        y = -P_WID / 2.0 + 24.0 + i * ((P_WID - 48.0) / 6.0)
+        for x_sign in (-1.0, 1.0):
+            pockets.append(
+                cq.Workplane("XY")
+                .workplane(offset=P_H - pd)
+                .center(x_sign * (P_LEN / 2.0 - P_WALL / 2.0), y)
+                .rect(pw, pl)
+                .extrude(pd + 0.2)
+            )
+    frame = frame.cut(_union(pockets))
+
+    grid = _panel_grid(inner_l, inner_w)
+
+    hy = inner_w / 2.0 - 1.6
+    handles = _u_handle(0.0, hy, open_y=-1.0).union(_u_handle(0.0, -hy, open_y=1.0))
+
+    # Bottom bulb seal, slightly proud on the seating face.
+    gasket = (
+        cq.Workplane("XY")
+        .rect(P_LEN - 1.0, P_WID - 1.0)
+        .extrude(P_SEAL_H)
+    )
+    gasket = _fillet_vertical(gasket, max(P_CORNER_R - 1.0, 1.0))
+    gasket = gasket.cut(
+        cq.Workplane("XY").rect(P_LEN - 2 * P_SEAL_W, P_WID - 2 * P_SEAL_W).extrude(P_SEAL_H)
+    )
+    try:
+        gasket = gasket.edges("<Z").fillet(2.2)
+    except Exception:
+        pass
 
     media = (
         cq.Workplane("XY")
-        .workplane(offset=floor)
-        .rect(inner_l - 0.8, inner_w - 0.8)
+        .workplane(offset=P_FLOOR)
+        .rect(inner_l - 1.0, inner_w - 1.0)
         .extrude(media_h)
     )
     n = int(inner_l / P_PLEAT_PITCH)
     x0 = -inner_l / 2.0 + P_PLEAT_PITCH
-    pleats = None
+    pleat_list = []
     for i in range(max(n - 1, 1)):
-        x = x0 + i * P_PLEAT_PITCH
-        ridge = (
+        pleat_list.append(
             cq.Workplane("XY")
-            .workplane(offset=floor + media_h - 0.2)
-            .center(x, 0)
-            .rect(2.2, inner_w - 4.0)
-            .extrude(pleat_h)
+            .workplane(offset=P_FLOOR + media_h - 0.15)
+            .center(x0 + i * P_PLEAT_PITCH, 0)
+            .rect(1.3, inner_w - 3.0)
+            .extrude(P_PLEAT_H)
         )
-        pleats = ridge if pleats is None else pleats.union(ridge)
-    beads = None
-    for y in (-80.0, -27.0, 27.0, 80.0):
-        bead = (
-            cq.Workplane("XY")
-            .workplane(offset=floor + media_h + pleat_h - 0.4)
-            .center(0, y)
-            .rect(inner_l - 8.0, 3.0)
-            .extrude(1.4)
-        )
-        beads = bead if beads is None else beads.union(bead)
+    pleats = _union(pleat_list)
 
-    # Folded wire handles on the media, below the frame rim.
-    handle_z = floor + media_h + 1.2
-    handles = None
-    for y in (-inner_w / 2.0 + 18.0, inner_w / 2.0 - 18.0):
-        bar = (
-            cq.Workplane("XY")
-            .workplane(offset=handle_z)
-            .center(0, y)
-            .rect(92.0, P_WIRE_D)
-            .extrude(P_WIRE_D)
-        )
-        end1 = (
-            cq.Workplane("XY")
-            .workplane(offset=handle_z)
-            .center(46.0, y)
-            .rect(P_WIRE_D, 22.0)
-            .extrude(P_WIRE_D)
-        )
-        end2 = (
-            cq.Workplane("XY")
-            .workplane(offset=handle_z)
-            .center(-46.0, y)
-            .rect(P_WIRE_D, 22.0)
-            .extrude(P_WIRE_D)
-        )
-        one = bar.union(end1).union(end2)
-        handles = one if handles is None else handles.union(one)
-
-    black = frame.union(ribs)
+    black = frame.union(grid).union(channel_ribs).union(latch).union(markings).union(handles)
     assy = cq.Assembly(name="P633484_SAFETY")
     assy.add(black, name="Black_Frame", color=cq.Color(0.08, 0.08, 0.08))
-    assy.add(gasket, name="Gasket", color=cq.Color(0.05, 0.05, 0.05))
-    assy.add(media, name="Media", color=cq.Color(0.90, 0.86, 0.72))
-    assy.add(pleats, name="Pleats", color=cq.Color(0.93, 0.89, 0.76))
-    assy.add(beads, name="Glue_Beads", color=cq.Color(0.95, 0.95, 0.93))
-    assy.add(handles, name="Handles", color=cq.Color(0.12, 0.12, 0.12))
+    assy.add(gasket, name="Bulb_Seal", color=cq.Color(0.04, 0.04, 0.04))
+    assy.add(media, name="Media", color=cq.Color(0.96, 0.62, 0.12))
+    assy.add(pleats, name="Pleats", color=cq.Color(1.0, 0.70, 0.16))
     return assy
 
 
