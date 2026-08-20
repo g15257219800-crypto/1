@@ -38,11 +38,11 @@ DBA_RING_T = 6.0
 DBA_SQ_RING_R = 55.0
 # Circular-face rings: two concentric ribs between hub and outer rim.
 DBA_CIRC_RING_R = (42.0, 76.0)
-# Two raised handle bosses on the circular top (product photo / spec sheet).
+# Two raised triangular pulls, each on four support spokes.
 DBA_BOSS_H = 20.0
-DBA_BOSS_OD = 38.0
-DBA_BOSS_WALL = 4.5
+DBA_BOSS_SIDE = 36.0
 DBA_BOSS_R = 68.0
+DBA_BOSS_SPOKE_D = 4.4
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -88,8 +88,45 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
     )
 
 
+def _rot_xy(x: float, y: float, deg: float) -> tuple[float, float]:
+    r = radians(deg)
+    return x * cos(r) - y * sin(r), x * sin(r) + y * cos(r)
+
+
+def _triangle_pts(cx: float, cy: float, rot_deg: float, side: float) -> list[tuple[float, float]]:
+    h_tri = side * (3.0 ** 0.5) / 2.0
+    local = ((0.0, 2.0 * h_tri / 3.0), (-side / 2.0, -h_tri / 3.0), (side / 2.0, -h_tri / 3.0))
+    return [(cx + _rot_xy(x, y, rot_deg)[0], cy + _rot_xy(x, y, rot_deg)[1]) for x, y in local]
+
+
+def _tri_boss(cx: float, cy: float, z: float, rot_deg: float) -> cq.Workplane:
+    """Triangular cap standing on 4 spokes (3 vertices + centre)."""
+    pts = _triangle_pts(cx, cy, rot_deg, DBA_BOSS_SIDE)
+    posts = [
+        cq.Workplane("XY").workplane(offset=z).center(cx, cy).circle(DBA_BOSS_SPOKE_D / 2.0).extrude(DBA_BOSS_H)
+    ]
+    for px, py in pts:
+        posts.append(
+            cq.Workplane("XY")
+            .workplane(offset=z)
+            .center(px, py)
+            .circle(DBA_BOSS_SPOKE_D / 2.0)
+            .extrude(DBA_BOSS_H)
+        )
+    plate = (
+        cq.Workplane("XY")
+        .workplane(offset=z + DBA_BOSS_H - 3.2)
+        .moveTo(*pts[0])
+        .lineTo(*pts[1])
+        .lineTo(*pts[2])
+        .close()
+        .extrude(3.2)
+    )
+    return _union(posts).union(plate)
+
+
 def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
-    """Round face: rim, 8 spokes, 2 rings, plus two raised hollow bosses."""
+    """Round face: rim, 8 spokes, 2 rings, two triangular raised pulls."""
     rim = _annulus(z, cyl_r + 0.8, cyl_r - DBA_RIM_W, DBA_SPOKE_H)
     rings = _union(
         [
@@ -109,40 +146,11 @@ def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workpla
             .rect(spoke_len, DBA_SPOKE_W)
             .extrude(DBA_SPOKE_H)
         )
-    bosses = []
-    for ang in (0.0, 180.0):
-        cx = DBA_BOSS_R * cos(radians(ang))
-        cy = DBA_BOSS_R * sin(radians(ang))
-        z_b = z + DBA_SPOKE_H
-        outer = (
-            cq.Workplane("XY")
-            .workplane(offset=z)
-            .center(cx, cy)
-            .polygon(8, DBA_BOSS_OD)
-            .extrude(DBA_SPOKE_H + DBA_BOSS_H)
-        )
-        inner = (
-            cq.Workplane("XY")
-            .workplane(offset=z_b + 1.5)
-            .center(cx, cy)
-            .polygon(8, DBA_BOSS_OD - 2 * DBA_BOSS_WALL)
-            .extrude(DBA_BOSS_H)
-        )
-        boss = outer.cut(inner)
-        # Internal vertical fins, as on the standing product photo.
-        fins = []
-        for i in range(4):
-            fa = ang + i * 45.0
-            fins.append(
-                cq.Workplane("XY")
-                .workplane(offset=z_b + 1.5)
-                .transformed(offset=(cx, cy, 0), rotate=(0, 0, fa))
-                .center((DBA_BOSS_OD - 2 * DBA_BOSS_WALL) / 4.0, 0)
-                .rect((DBA_BOSS_OD - 2 * DBA_BOSS_WALL) / 2.0 - 1.5, 2.2)
-                .extrude(DBA_BOSS_H - 1.8)
-            )
-        boss = boss.union(_union(fins))
-        bosses.append(boss)
+    # Vertex of each triangle points radially outward.
+    bosses = [
+        _tri_boss(DBA_BOSS_R, 0.0, z + DBA_SPOKE_H, -90.0),
+        _tri_boss(-DBA_BOSS_R, 0.0, z + DBA_SPOKE_H, 90.0),
+    ]
     black = _union([rim, rings, *spokes, *bosses])
     hub = (
         cq.Workplane("XY")
@@ -271,78 +279,18 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
-def _panel_grid(inner_l: float, inner_w: float, z: float, h: float) -> cq.Workplane:
-    """4 horizontal bars (5 rows) and staggered verticals on one face."""
-    t = P_RIB_T
-    row_h = inner_w / 5.0
-    bars = []
-    for i in range(1, 5):
-        y = -inner_w / 2.0 + i * row_h
-        bars.append(
-            cq.Workplane("XY")
-            .workplane(offset=z)
-            .center(0, y)
-            .rect(inner_l + 0.6, t)
-            .extrude(h)
-        )
-    offsets = (
-        (-0.28, 0.28),
-        (-0.20, 0.24),
-        (-0.22, 0.22),
-        (-0.24, 0.18),
-        (-0.12, 0.30),
-    )
-    verts = []
-    for i, (a, b) in enumerate(offsets):
-        y = -inner_w / 2.0 + (i + 0.5) * row_h
-        for frac in (a, b):
-            verts.append(
-                cq.Workplane("XY")
-                .workplane(offset=z)
-                .center(frac * inner_l, y)
-                .rect(t, row_h - 1.2)
-                .extrude(h)
-            )
-    return _union(bars + verts)
-
-
-def _u_handle(x: float, y: float, open_y: float) -> cq.Workplane:
-    """Molded U pull. open_y is +1 or -1, pointing the opening into the media."""
-    z = P_H - 9.0
-    w, d, t = P_HANDLE_W, P_HANDLE_D, 3.2
-    bar = cq.Workplane("XY").workplane(offset=z).center(x, y).rect(w, t).extrude(t)
-    e1 = (
-        cq.Workplane("XY")
-        .workplane(offset=z)
-        .center(x - w / 2 + t / 2, y + open_y * d / 2)
-        .rect(t, d)
-        .extrude(t)
-    )
-    e2 = (
-        cq.Workplane("XY")
-        .workplane(offset=z)
-        .center(x + w / 2 - t / 2, y + open_y * d / 2)
-        .rect(t, d)
-        .extrude(t)
-    )
-    return bar.union(e1).union(e2)
-
-
 def build_p633484() -> cq.Assembly:
     inner_l = P_LEN - 2 * P_WALL
     inner_w = P_WID - 2 * P_WALL
-    grid_h = 3.4
     media_z = 1.0
     media_h = P_H - 2.0
 
     frame = cq.Workplane("XY").rect(P_LEN, P_WID).extrude(P_H)
     frame = _fillet_vertical(frame, P_CORNER_R)
-    # Open both faces so media shows through (not a closed tray).
     frame = frame.cut(
         cq.Workplane("XY").workplane(offset=-1.0).rect(inner_l, inner_w).extrude(P_H + 2.0)
     )
 
-    # Outer-wall channel (side-profile photo).
     groove = (
         cq.Workplane("XY")
         .workplane(offset=P_CHANNEL_Z)
@@ -357,7 +305,6 @@ def build_p633484() -> cq.Assembly:
     )
     frame = frame.cut(groove)
 
-    # Trapezoid latch pocket on the +Y wall.
     latch_cut = (
         cq.Workplane("XZ")
         .workplane(offset=P_WID / 2.0 - P_CHANNEL_D - 0.2)
@@ -378,16 +325,14 @@ def build_p633484() -> cq.Assembly:
         .extrude(2.2)
     )
 
-    # FLOW + arrows, raised in the channel on +Y.
     markings = None
     try:
-        txt = (
+        markings = (
             cq.Workplane("XZ")
             .workplane(offset=P_WID / 2.0 - 1.3)
             .center(-8.0, P_CHANNEL_Z + P_CHANNEL_H / 2.0)
             .text("FLOW", 6.5, 0.8, font="DejaVu Sans", kind="bold")
         )
-        markings = txt
     except Exception:
         markings = None
     arrows = []
@@ -403,12 +348,8 @@ def build_p633484() -> cq.Assembly:
             .extrude(0.8)
         )
     arrow_solids = _union(arrows)
-    if markings is not None:
-        markings = markings.union(arrow_solids)
-    else:
-        markings = arrow_solids
+    markings = arrow_solids if markings is None else markings.union(arrow_solids)
 
-    # Channel ribs around the perimeter, skipping the latch zone.
     chan_ribs = []
     pitch = 22.0
     rib_h, rib_t = P_CHANNEL_H - 1.0, 1.4
@@ -437,39 +378,6 @@ def build_p633484() -> cq.Assembly:
         y += pitch
     channel_ribs = _union(chan_ribs)
 
-    # Recessed pockets on the top rim.
-    pockets = []
-    pw, pl, pd = 7.0, 16.0, 2.2
-    for i in range(8):
-        x = -P_LEN / 2.0 + 24.0 + i * ((P_LEN - 48.0) / 7.0)
-        for y_sign in (-1.0, 1.0):
-            pockets.append(
-                cq.Workplane("XY")
-                .workplane(offset=P_H - pd)
-                .center(x, y_sign * (P_WID / 2.0 - P_WALL / 2.0))
-                .rect(pl, pw)
-                .extrude(pd + 0.2)
-            )
-    for i in range(7):
-        y = -P_WID / 2.0 + 24.0 + i * ((P_WID - 48.0) / 6.0)
-        for x_sign in (-1.0, 1.0):
-            pockets.append(
-                cq.Workplane("XY")
-                .workplane(offset=P_H - pd)
-                .center(x_sign * (P_LEN / 2.0 - P_WALL / 2.0), y)
-                .rect(pw, pl)
-                .extrude(pd + 0.2)
-            )
-    frame = frame.cut(_union(pockets))
-
-    grid_top = _panel_grid(inner_l, inner_w, z=P_H - grid_h, h=grid_h)
-    grid_bot = _panel_grid(inner_l, inner_w, z=0.4, h=grid_h)
-    grid = grid_top.union(grid_bot)
-
-    hy = inner_w / 2.0 - 1.6
-    handles = _u_handle(0.0, hy, open_y=-1.0).union(_u_handle(0.0, -hy, open_y=1.0))
-
-    # Bottom bulb seal, slightly proud on the seating face.
     gasket = (
         cq.Workplane("XY")
         .rect(P_LEN - 1.0, P_WID - 1.0)
@@ -484,40 +392,61 @@ def build_p633484() -> cq.Assembly:
     except Exception:
         pass
 
+    # Safety media: cream pleats, both faces. Not the orange open face in the DBA5293 photo.
     media = (
         cq.Workplane("XY")
         .workplane(offset=media_z)
         .rect(inner_l - 0.8, inner_w - 0.8)
         .extrude(media_h)
     )
-    n = int(inner_l / P_PLEAT_PITCH)
-    x0 = -inner_l / 2.0 + P_PLEAT_PITCH
+    n = int(inner_l / 8.0)
+    x0 = -inner_l / 2.0 + 8.0
     pleat_list = []
     for i in range(max(n - 1, 1)):
-        x = x0 + i * P_PLEAT_PITCH
-        # Pleat texture on both faces, kept inside 0–37.5 mm.
+        x = x0 + i * 8.0
         pleat_list.append(
             cq.Workplane("XY")
             .workplane(offset=P_H - 1.2)
             .center(x, 0)
-            .rect(1.3, inner_w - 3.0)
+            .rect(1.6, inner_w - 4.0)
             .extrude(1.1)
         )
         pleat_list.append(
             cq.Workplane("XY")
             .workplane(offset=0.0)
             .center(x, 0)
-            .rect(1.3, inner_w - 3.0)
+            .rect(1.6, inner_w - 4.0)
             .extrude(1.1)
         )
     pleats = _union(pleat_list)
+    beads = []
+    for yb in (-80.0, -27.0, 27.0, 80.0):
+        beads.append(
+            cq.Workplane("XY")
+            .workplane(offset=P_H - 1.2)
+            .center(0, yb)
+            .rect(inner_l - 10.0, 3.0)
+            .extrude(1.1)
+        )
+    glue = _union(beads)
 
-    black = frame.union(grid).union(channel_ribs).union(latch).union(markings).union(handles)
+    # Folded steel wire handles (official safety element), not plastic side tabs.
+    wire_z = P_H - 4.0
+    handles = None
+    for y in (-inner_w / 2.0 + 16.0, inner_w / 2.0 - 16.0):
+        bar = cq.Workplane("XY").workplane(offset=wire_z).center(0, y).rect(90.0, 3.2).extrude(3.2)
+        e1 = cq.Workplane("XY").workplane(offset=wire_z).center(45.0, y).rect(3.2, 18.0).extrude(3.2)
+        e2 = cq.Workplane("XY").workplane(offset=wire_z).center(-45.0, y).rect(3.2, 18.0).extrude(3.2)
+        one = bar.union(e1).union(e2)
+        handles = one if handles is None else handles.union(one)
+
+    black = frame.union(channel_ribs).union(latch).union(markings).union(handles)
     assy = cq.Assembly(name="P633484_SAFETY")
     assy.add(black, name="Black_Frame", color=cq.Color(0.08, 0.08, 0.08))
     assy.add(gasket, name="Bulb_Seal", color=cq.Color(0.04, 0.04, 0.04))
-    assy.add(media, name="Media", color=cq.Color(0.96, 0.62, 0.12))
-    assy.add(pleats, name="Pleats", color=cq.Color(1.0, 0.70, 0.16))
+    assy.add(media, name="Media", color=cq.Color(0.90, 0.86, 0.72))
+    assy.add(pleats, name="Pleats", color=cq.Color(0.93, 0.89, 0.76))
+    assy.add(glue, name="Glue_Beads", color=cq.Color(0.95, 0.95, 0.93))
     return assy
 
 
