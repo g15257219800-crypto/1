@@ -10,7 +10,6 @@ Units: millimetres.
 
 from __future__ import annotations
 
-from math import cos, radians, sin
 from pathlib import Path
 
 import cadquery as cq
@@ -38,11 +37,11 @@ DBA_RING_T = 6.0
 DBA_SQ_RING_R = 55.0
 # Circular-face rings: two concentric ribs between hub and outer rim.
 DBA_CIRC_RING_R = (42.0, 76.0)
-# Two raised triangular pulls, each on four support spokes.
-DBA_BOSS_H = 20.0
-DBA_BOSS_SIDE = 36.0
-DBA_BOSS_R = 68.0
-DBA_BOSS_SPOKE_D = 4.4
+# Two 4-spoke peaked pulls on the circular top (product photo).
+DBA_BOSS_H = 22.0
+DBA_BOSS_SPAN = 36.0
+DBA_BOSS_T = 3.4
+DBA_BOSS_R = 80.0
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -88,45 +87,36 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
     )
 
 
-def _rot_xy(x: float, y: float, deg: float) -> tuple[float, float]:
-    r = radians(deg)
-    return x * cos(r) - y * sin(r), x * sin(r) + y * cos(r)
-
-
-def _triangle_pts(cx: float, cy: float, rot_deg: float, side: float) -> list[tuple[float, float]]:
-    h_tri = side * (3.0 ** 0.5) / 2.0
-    local = ((0.0, 2.0 * h_tri / 3.0), (-side / 2.0, -h_tri / 3.0), (side / 2.0, -h_tri / 3.0))
-    return [(cx + _rot_xy(x, y, rot_deg)[0], cy + _rot_xy(x, y, rot_deg)[1]) for x, y in local]
-
-
-def _tri_boss(cx: float, cy: float, z: float, rot_deg: float) -> cq.Workplane:
-    """Triangular cap standing on 4 spokes (3 vertices + centre)."""
-    pts = _triangle_pts(cx, cy, rot_deg, DBA_BOSS_SIDE)
-    posts = [
-        cq.Workplane("XY").workplane(offset=z).center(cx, cy).circle(DBA_BOSS_SPOKE_D / 2.0).extrude(DBA_BOSS_H)
-    ]
-    for px, py in pts:
-        posts.append(
-            cq.Workplane("XY")
-            .workplane(offset=z)
-            .center(px, py)
-            .circle(DBA_BOSS_SPOKE_D / 2.0)
-            .extrude(DBA_BOSS_H)
-        )
-    plate = (
-        cq.Workplane("XY")
-        .workplane(offset=z + DBA_BOSS_H - 3.2)
-        .moveTo(*pts[0])
-        .lineTo(*pts[1])
-        .lineTo(*pts[2])
+def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
+    """Four slanted ribs meeting at a peak: two intersecting triangles (side view = triangle)."""
+    h = DBA_BOSS_H
+    s = DBA_BOSS_SPAN / 2.0
+    t = DBA_BOSS_T
+    # XZ fin: triangle in XZ, thickness along Y.
+    fin_xz = (
+        cq.Workplane("XZ")
+        .workplane(offset=cy - t / 2.0)
+        .moveTo(cx - s, z)
+        .lineTo(cx + s, z)
+        .lineTo(cx, z + h)
         .close()
-        .extrude(3.2)
+        .extrude(t)
     )
-    return _union(posts).union(plate)
+    # YZ fin: triangle in YZ, thickness along X.
+    fin_yz = (
+        cq.Workplane("YZ")
+        .workplane(offset=cx - t / 2.0)
+        .moveTo(cy - s, z)
+        .lineTo(cy + s, z)
+        .lineTo(cy, z + h)
+        .close()
+        .extrude(t)
+    )
+    return fin_xz.union(fin_yz)
 
 
 def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
-    """Round face: rim, 8 spokes, 2 rings, two triangular raised pulls."""
+    """Round face from the product photo: grid plus two 4-spoke peaked pulls."""
     rim = _annulus(z, cyl_r + 0.8, cyl_r - DBA_RIM_W, DBA_SPOKE_H)
     rings = _union(
         [
@@ -146,10 +136,9 @@ def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workpla
             .rect(spoke_len, DBA_SPOKE_W)
             .extrude(DBA_SPOKE_H)
         )
-    # Vertex of each triangle points radially outward.
     bosses = [
-        _tri_boss(DBA_BOSS_R, 0.0, z + DBA_SPOKE_H, -90.0),
-        _tri_boss(-DBA_BOSS_R, 0.0, z + DBA_SPOKE_H, 90.0),
+        _peak_boss(DBA_BOSS_R, 0.0, z + DBA_SPOKE_H),
+        _peak_boss(-DBA_BOSS_R, 0.0, z + DBA_SPOKE_H),
     ]
     black = _union([rim, rings, *spokes, *bosses])
     hub = (
