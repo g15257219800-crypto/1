@@ -3,16 +3,19 @@
 
 Overall L/W/H come from Donaldson product specs. Local features (square
 radial-seal frame, circular 8-spoke grid with two rings and diamond
-handles, panel gasket, folded handles) follow the physical parts.
+handles, panel gasket, circular-pipe U handles) follow the physical parts.
 
 Units: millimetres.
 """
 
 from __future__ import annotations
 
+from math import radians
 from pathlib import Path
 
 import cadquery as cq
+from OCP.BRepPrimAPI import BRepPrimAPI_MakeTorus
+from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
 
 OUT = Path(__file__).resolve().parent
 
@@ -61,8 +64,13 @@ P_SEAL_H = 5.0
 P_SEAL_W = 6.0
 P_PLEAT_PITCH = 4.5
 P_PLEAT_H = 2.2
-P_HANDLE_W = 32.0
-P_HANDLE_D = 11.0
+# Circular-section U-pipes on the long inner edges (photo of the cream face).
+P_PIPE_R = 2.0
+P_PIPE_LEN = 88.0
+P_PIPE_DEPTH = 22.0
+P_PIPE_CORNER = 6.0
+# Recess media so the pipes sit just above the pleats, still under the 37.5 envelope.
+P_MEDIA_TOP = P_H - 6.8
 
 
 def _fillet_vertical(wp: cq.Workplane, radius: float) -> cq.Workplane:
@@ -107,6 +115,40 @@ def _square_bar(p0: tuple[float, float, float], p1: tuple[float, float, float], 
             angle = degrees(acos(max(-1.0, min(1.0, z_axis.dot(n)))))
             bar = bar.rotate((0, 0, 0), (axis.x, axis.y, axis.z), angle)
     return bar.translate((v0.x, v0.y, v0.z))
+
+
+def _round_bar(p0: tuple[float, float, float], p1: tuple[float, float, float], radius: float) -> cq.Workplane:
+    """Circular-section bar from p0 to p1."""
+    from math import acos, degrees
+
+    v0 = cq.Vector(*p0)
+    direction = cq.Vector(*p1) - v0
+    length = direction.Length
+    n = direction.normalized()
+    bar = cq.Workplane("XY").circle(radius).extrude(length)
+    z_axis = cq.Vector(0, 0, 1)
+    if (z_axis - n).Length > 1e-7:
+        if (z_axis + n).Length < 1e-7:
+            bar = bar.rotate((0, 0, 0), (1, 0, 0), 180)
+        else:
+            axis = z_axis.cross(n)
+            angle = degrees(acos(max(-1.0, min(1.0, z_axis.dot(n)))))
+            bar = bar.rotate((0, 0, 0), (axis.x, axis.y, axis.z), angle)
+    return bar.translate((v0.x, v0.y, v0.z))
+
+
+def _pipe_elbow_xy(
+    cx: float,
+    cy: float,
+    z: float,
+    xdir: tuple[float, float],
+    bend_r: float,
+    pipe_r: float,
+) -> cq.Workplane:
+    """90° pipe elbow in the XY plane (CCW from xdir around +Z)."""
+    ax = gp_Ax2(gp_Pnt(cx, cy, z), gp_Dir(0, 0, 1), gp_Dir(xdir[0], xdir[1], 0))
+    solid = cq.Solid(BRepPrimAPI_MakeTorus(ax, bend_r, pipe_r, radians(90.0)).Shape())
+    return cq.Workplane("XY").newObject([solid])
 
 
 def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
@@ -302,11 +344,34 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
+def _pipe_u_handle(y_bar: float, toward_center: float, z: float) -> cq.Workplane:
+    """Circular-section U-pipe lying on the media face, opening toward the center.
+
+    Long bar sits on the inner long-side wall; both legs point inward.
+    """
+    half = P_PIPE_LEN / 2.0
+    cr = P_PIPE_CORNER
+    r = P_PIPE_R
+    y_open = y_bar + toward_center * P_PIPE_DEPTH
+    y_arc = y_bar + toward_center * cr
+    long_bar = _round_bar((-half + cr, y_bar, z), (half - cr, y_bar, z), r)
+    left_leg = _round_bar((-half, y_open, z), (-half, y_arc, z), r)
+    right_leg = _round_bar((half, y_open, z), (half, y_arc, z), r)
+    # 90° elbows: same solid as a bent tube. X-dir is the CCW start of the quarter.
+    if toward_center < 0:
+        left_dir, right_dir = (0.0, 1.0), (1.0, 0.0)
+    else:
+        left_dir, right_dir = (-1.0, 0.0), (0.0, -1.0)
+    left_e = _pipe_elbow_xy(-half + cr, y_bar + toward_center * cr, z, left_dir, cr, r)
+    right_e = _pipe_elbow_xy(half - cr, y_bar + toward_center * cr, z, right_dir, cr, r)
+    return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e)
+
+
 def build_p633484() -> cq.Assembly:
     inner_l = P_LEN - 2 * P_WALL
     inner_w = P_WID - 2 * P_WALL
     media_z = 1.0
-    media_h = P_H - 2.0
+    media_h = P_MEDIA_TOP - media_z
 
     frame = cq.Workplane("XY").rect(P_LEN, P_WID).extrude(P_H)
     frame = _fillet_vertical(frame, P_CORNER_R)
@@ -429,7 +494,7 @@ def build_p633484() -> cq.Assembly:
         x = x0 + i * 8.0
         pleat_list.append(
             cq.Workplane("XY")
-            .workplane(offset=P_H - 1.2)
+            .workplane(offset=P_MEDIA_TOP)
             .center(x, 0)
             .rect(1.6, inner_w - 4.0)
             .extrude(1.1)
@@ -446,22 +511,20 @@ def build_p633484() -> cq.Assembly:
     for yb in (-80.0, -27.0, 27.0, 80.0):
         beads.append(
             cq.Workplane("XY")
-            .workplane(offset=P_H - 1.2)
+            .workplane(offset=P_MEDIA_TOP)
             .center(0, yb)
             .rect(inner_l - 10.0, 3.0)
             .extrude(1.1)
         )
     glue = _union(beads)
 
-    # Folded steel wire handles (official safety element), not plastic side tabs.
-    wire_z = P_H - 4.0
-    handles = None
-    for y in (-inner_w / 2.0 + 16.0, inner_w / 2.0 - 16.0):
-        bar = cq.Workplane("XY").workplane(offset=wire_z).center(0, y).rect(90.0, 3.2).extrude(3.2)
-        e1 = cq.Workplane("XY").workplane(offset=wire_z).center(45.0, y).rect(3.2, 18.0).extrude(3.2)
-        e2 = cq.Workplane("XY").workplane(offset=wire_z).center(-45.0, y).rect(3.2, 18.0).extrude(3.2)
-        one = bar.union(e1).union(e2)
-        handles = one if handles is None else handles.union(one)
+    # Two circular-pipe U handles on the long inner edges, opening toward center.
+    # Long bar is anchored in the inner wall; legs hover above the recessed media.
+    pipe_z = P_H - 3.5
+    y_inner = inner_w / 2.0 - 0.4
+    handles = _pipe_u_handle(y_inner, -1.0, pipe_z).union(
+        _pipe_u_handle(-y_inner, 1.0, pipe_z)
+    )
 
     black = frame.union(channel_ribs).union(latch).union(markings).union(handles)
     assy = cq.Assembly(name="P633484_SAFETY")
