@@ -38,10 +38,12 @@ DBA_SQ_RING_R = 55.0
 # Circular-face rings: two concentric ribs between hub and outer rim.
 DBA_CIRC_RING_R = (42.0, 76.0)
 # Two 4-spoke peaked pulls on the circular top (product photo).
-DBA_BOSS_H = 22.0
+DBA_BOSS_H = 26.0
 DBA_BOSS_SPAN = 36.0
 DBA_BOSS_T = 3.4
 DBA_BOSS_R = 80.0
+DBA_BOSS_PAD_H = 4.0
+DBA_BOSS_POST_H = 7.0
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -88,31 +90,54 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
 
 
 def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
-    """Four slanted ribs meeting at a peak: two intersecting triangles (side view = triangle)."""
+    """Square pad + 4 rectangular posts, then 4 slanted ribs to a peak."""
     h = DBA_BOSS_H
     s = DBA_BOSS_SPAN / 2.0
     t = DBA_BOSS_T
-    # XZ fin: triangle in XZ, thickness along Y.
+    pad_h = DBA_BOSS_PAD_H
+    post_h = DBA_BOSS_POST_H
+    z_fin = z + pad_h + post_h
+    pad = (
+        cq.Workplane("XY")
+        .workplane(offset=z)
+        .center(cx, cy)
+        .rect(DBA_BOSS_SPAN, DBA_BOSS_SPAN)
+        .extrude(pad_h)
+    )
+    post_w = 8.0
+    posts = []
+    for dx, dy, sx, sy in (
+        (s, 0.0, post_w, t + 0.6),
+        (-s, 0.0, post_w, t + 0.6),
+        (0.0, s, t + 0.6, post_w),
+        (0.0, -s, t + 0.6, post_w),
+    ):
+        posts.append(
+            cq.Workplane("XY")
+            .workplane(offset=z)
+            .center(cx + dx, cy + dy)
+            .rect(sx, sy)
+            .extrude(pad_h + post_h)
+        )
     fin_xz = (
         cq.Workplane("XZ")
         .workplane(offset=cy - t / 2.0)
-        .moveTo(cx - s, z)
-        .lineTo(cx + s, z)
+        .moveTo(cx - s, z_fin)
+        .lineTo(cx + s, z_fin)
         .lineTo(cx, z + h)
         .close()
         .extrude(t)
     )
-    # YZ fin: triangle in YZ, thickness along X.
     fin_yz = (
         cq.Workplane("YZ")
         .workplane(offset=cx - t / 2.0)
-        .moveTo(cy - s, z)
-        .lineTo(cy + s, z)
+        .moveTo(cy - s, z_fin)
+        .lineTo(cy + s, z_fin)
         .lineTo(cy, z + h)
         .close()
         .extrude(t)
     )
-    return fin_xz.union(fin_yz)
+    return pad.union(_union(posts)).union(fin_xz).union(fin_yz)
 
 
 def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
