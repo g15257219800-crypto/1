@@ -43,7 +43,7 @@ DBA_BOSS_SPAN = 36.0
 DBA_BOSS_R = 80.0
 DBA_BOSS_WALL = 3.6
 DBA_BOSS_FRAME_H = 8.0
-DBA_BOSS_ROD_R = 2.3
+DBA_BOSS_ROD_SIDE = 4.2
 
 # --- P633484 (safety panel, from the physical part) ------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -89,15 +89,28 @@ def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
     )
 
 
-def _cyl_between(p0: tuple[float, float, float], p1: tuple[float, float, float], radius: float) -> cq.Workplane:
+def _square_bar(p0: tuple[float, float, float], p1: tuple[float, float, float], side: float) -> cq.Workplane:
+    """Square-section bar from p0 to p1."""
+    from math import acos, degrees
+
     v0 = cq.Vector(*p0)
     direction = cq.Vector(*p1) - v0
-    solid = cq.Solid.makeCylinder(radius, direction.Length, v0, direction)
-    return cq.Workplane("XY").newObject([solid])
+    length = direction.Length
+    n = direction.normalized()
+    bar = cq.Workplane("XY").rect(side, side).extrude(length)
+    z_axis = cq.Vector(0, 0, 1)
+    if (z_axis - n).Length > 1e-7:
+        if (z_axis + n).Length < 1e-7:
+            bar = bar.rotate((0, 0, 0), (1, 0, 0), 180)
+        else:
+            axis = z_axis.cross(n)
+            angle = degrees(acos(max(-1.0, min(1.0, z_axis.dot(n)))))
+            bar = bar.rotate((0, 0, 0), (axis.x, axis.y, axis.z), angle)
+    return bar.translate((v0.x, v0.y, v0.z))
 
 
 def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
-    """Hollow rectangular frame with 4 cylindrical spokes meeting at a peak."""
+    """Hollow rectangular frame with 4 square-section spokes meeting at a peak."""
     h = DBA_BOSS_H
     span = DBA_BOSS_SPAN
     wall = DBA_BOSS_WALL
@@ -122,11 +135,10 @@ def _peak_boss(cx: float, cy: float, z: float) -> cq.Workplane:
     z1 = z + frame_h
     apex = (cx, cy, z + h)
     rods = [
-        _cyl_between((cx + dx, cy + dy, z1), apex, DBA_BOSS_ROD_R)
+        _square_bar((cx + dx, cy + dy, z1), apex, DBA_BOSS_ROD_SIDE)
         for dx, dy in ((s, s), (s, -s), (-s, s), (-s, -s))
     ]
     boss = frame.union(_union(rods))
-    # Slanted cylinder ends would poke past the apex; clip to overall height.
     boss = boss.cut(
         cq.Workplane("XY")
         .workplane(offset=z + h)
