@@ -2,14 +2,15 @@
 """Build envelope-accurate layout solids of Donaldson DBA5293 / P633484.
 
 Overall L/W/H come from Donaldson product specs. Local features (square
-radial-seal frame, 8-spoke web, circular cap grips, panel gasket, folded
-handles) follow the physical parts, not official CAD.
+radial-seal frame, circular 8-spoke grid with two rings and diamond
+handles, panel gasket, folded handles) follow the physical parts.
 
 Units: millimetres.
 """
 
 from __future__ import annotations
 
+from math import cos, radians, sin
 from pathlib import Path
 
 import cadquery as cq
@@ -28,13 +29,18 @@ DBA_FRAME_H = 16.0
 DBA_LIP_H = 4.0
 DBA_LIP_W = 7.0
 DBA_COLLAR_H = 22.0
-DBA_CAP_H = 13.0
-DBA_BOSS_H = 16.0
-DBA_SPOKE_W = 8.0
+DBA_SPOKE_W = 7.0
 DBA_SPOKE_H = 7.0
-DBA_HUB_D = 28.0
+DBA_HUB_D = 24.0
+DBA_RIM_W = 9.0
 DBA_RING_T = 6.0
-DBA_RING_R = 55.0  # centreline radius of concentric ring
+# Square-face ring (one ring + corner ribs, from the earlier photo).
+DBA_SQ_RING_R = 55.0
+# Circular-face rings: two concentric ribs between hub and outer rim.
+DBA_CIRC_RING_R = (42.0, 76.0)
+DBA_DIAMOND_SIZE = 28.0
+DBA_DIAMOND_WALL = 4.5
+DBA_DIAMOND_H = 7.0
 
 # --- P633484 (safety panel) -------------------------------------------------
 # Spec envelope: 286 x 265 x 37.5
@@ -58,6 +64,74 @@ def _fillet_vertical(wp: cq.Workplane, radius: float) -> cq.Workplane:
         return wp
 
 
+def _union(parts: list[cq.Workplane]) -> cq.Workplane:
+    out = parts[0]
+    for p in parts[1:]:
+        out = out.union(p)
+    return out
+
+
+def _annulus(z: float, r_out: float, r_in: float, h: float) -> cq.Workplane:
+    return (
+        cq.Workplane("XY")
+        .workplane(offset=z)
+        .circle(r_out)
+        .circle(r_in)
+        .extrude(h)
+    )
+
+
+def _circular_end_grid(z: float, cyl_r: float) -> tuple[cq.Workplane, cq.Workplane]:
+    """Round face from the top-down photo: rim, 8 spokes, 2 rings, 2 diamonds."""
+    rim = _annulus(z, cyl_r + 0.8, cyl_r - DBA_RIM_W, DBA_SPOKE_H)
+    rings = _union(
+        [
+            _annulus(z, r + DBA_RING_T / 2.0, r - DBA_RING_T / 2.0, DBA_SPOKE_H)
+            for r in DBA_CIRC_RING_R
+        ]
+    )
+    spokes = []
+    spoke_len = cyl_r - DBA_HUB_D / 2.0 - 1.0
+    for i in range(8):
+        ang = i * 45.0
+        spokes.append(
+            cq.Workplane("XY")
+            .workplane(offset=z)
+            .transformed(rotate=(0, 0, ang))
+            .center(DBA_HUB_D / 2.0 + spoke_len / 2.0, 0)
+            .rect(spoke_len, DBA_SPOKE_W)
+            .extrude(DBA_SPOKE_H)
+        )
+    diamonds = []
+    r_d = sum(DBA_CIRC_RING_R) / 2.0
+    for ang in (22.5, 202.5):
+        cx = r_d * cos(radians(ang))
+        cy = r_d * sin(radians(ang))
+        outer = (
+            cq.Workplane("XY")
+            .workplane(offset=z)
+            .transformed(offset=(cx, cy, 0), rotate=(0, 0, ang + 45.0))
+            .rect(DBA_DIAMOND_SIZE, DBA_DIAMOND_SIZE)
+            .extrude(DBA_DIAMOND_H)
+        )
+        inner = (
+            cq.Workplane("XY")
+            .workplane(offset=z - 0.2)
+            .transformed(offset=(cx, cy, 0), rotate=(0, 0, ang + 45.0))
+            .rect(DBA_DIAMOND_SIZE - 2 * DBA_DIAMOND_WALL, DBA_DIAMOND_SIZE - 2 * DBA_DIAMOND_WALL)
+            .extrude(DBA_DIAMOND_H + 0.4)
+        )
+        diamonds.append(outer.cut(inner))
+    black = _union([rim, rings, *spokes, *diamonds])
+    hub = (
+        cq.Workplane("XY")
+        .workplane(offset=z)
+        .circle(DBA_HUB_D / 2.0)
+        .extrude(DBA_SPOKE_H)
+    )
+    return black, hub
+
+
 def build_dba5293() -> cq.Assembly:
     cyl_r = DBA_CYL_D / 2.0
     media_h = (
@@ -65,8 +139,7 @@ def build_dba5293() -> cq.Assembly:
         - DBA_LIP_H
         - DBA_FRAME_H
         - DBA_COLLAR_H
-        - DBA_CAP_H
-        - DBA_BOSS_H
+        - DBA_SPOKE_H
     )
     z0 = DBA_LIP_H  # top of gasket lip / bottom of square frame
 
@@ -113,56 +186,11 @@ def build_dba5293() -> cq.Assembly:
         cq.Workplane("XY")
         .workplane(offset=media_z)
         .circle(cyl_r - 0.4)
-        .extrude(media_h + DBA_FRAME_H + DBA_COLLAR_H - 3.0)
+        .extrude(media_h + DBA_FRAME_H + DBA_COLLAR_H - 2.0)
     )
 
-    cap_z = z0 + DBA_FRAME_H + DBA_COLLAR_H + media_h
-    cap = (
-        cq.Workplane("XY")
-        .workplane(offset=cap_z)
-        .circle(cyl_r + 2.0)
-        .extrude(DBA_CAP_H)
-    )
-    # Recessed ribbed centre on the circular cap (side-view of the real part).
-    cap = cap.cut(
-        cq.Workplane("XY")
-        .workplane(offset=cap_z + DBA_CAP_H - 4.0)
-        .circle(cyl_r - 22.0)
-        .extrude(5.0)
-    )
-    cap_ribs = cq.Workplane("XY")
-    first = True
-    for ang in range(0, 180, 45):
-        rib = (
-            cq.Workplane("XY")
-            .workplane(offset=cap_z + DBA_CAP_H - 4.0)
-            .transformed(rotate=(0, 0, ang))
-            .center(0, 0)
-            .rect(DBA_CYL_D - 50.0, 5.0)
-            .extrude(3.5)
-        )
-        cap_ribs = rib if first else cap_ribs.union(rib)
-        first = False
-
-    # Two hollow octagonal grips on the cap, as on the standing product photo.
-    boss_z = cap_z + DBA_CAP_H
-    bosses = None
-    for x in (-48.0, 48.0):
-        boss = (
-            cq.Workplane("XY")
-            .workplane(offset=boss_z)
-            .center(x, 0)
-            .polygon(8, 34.0)
-            .extrude(DBA_BOSS_H)
-        )
-        boss = boss.cut(
-            cq.Workplane("XY")
-            .workplane(offset=boss_z + 2.0)
-            .center(x, 0)
-            .polygon(8, 24.0)
-            .extrude(DBA_BOSS_H)
-        )
-        bosses = boss if bosses is None else bosses.union(boss)
+    circ_z = z0 + DBA_FRAME_H + DBA_COLLAR_H + media_h
+    circ_grid, white_hub = _circular_end_grid(circ_z, cyl_r)
 
     # Square-face web: 8 spokes, one ring, 4 corner ribs, centre hub.
     web_z = z0
@@ -175,8 +203,8 @@ def build_dba5293() -> cq.Assembly:
     ring = (
         cq.Workplane("XY")
         .workplane(offset=web_z)
-        .circle(DBA_RING_R + DBA_RING_T / 2.0)
-        .circle(DBA_RING_R - DBA_RING_T / 2.0)
+        .circle(DBA_SQ_RING_R + DBA_RING_T / 2.0)
+        .circle(DBA_SQ_RING_R - DBA_RING_T / 2.0)
         .extrude(DBA_SPOKE_H)
     )
     spokes = None
@@ -207,9 +235,7 @@ def build_dba5293() -> cq.Assembly:
     plastic = (
         lip.union(frame)
         .union(collar)
-        .union(cap)
-        .union(cap_ribs)
-        .union(bosses)
+        .union(circ_grid)
         .union(hub)
         .union(ring)
         .union(spokes)
@@ -217,18 +243,9 @@ def build_dba5293() -> cq.Assembly:
     )
 
     assy = cq.Assembly(name="DBA5293_PRIMARY")
-    assy.add(
-        plastic,
-        name="Black_Frame",
-        color=cq.Color(0.10, 0.10, 0.10),
-        loc=cq.Location(cq.Vector(0, 0, 0)),
-    )
-    assy.add(
-        media,
-        name="Blue_Media",
-        color=cq.Color(0.12, 0.45, 0.85),
-        loc=cq.Location(cq.Vector(0, 0, 0)),
-    )
+    assy.add(plastic, name="Black_Frame", color=cq.Color(0.10, 0.10, 0.10))
+    assy.add(media, name="Blue_Media", color=cq.Color(0.12, 0.45, 0.85))
+    assy.add(white_hub, name="White_Hub", color=cq.Color(0.93, 0.93, 0.90))
     return assy
 
 
