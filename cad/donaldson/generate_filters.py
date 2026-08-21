@@ -70,10 +70,11 @@ P_PIPE_R = 2.0
 P_PIPE_LEN = 88.0
 P_PIPE_DEPTH = 22.0
 P_PIPE_CORNER = 6.0
-# Rectangular plates sit on top of each pipe-to-wall joint, flush with the frame top.
-P_PAD_X = 14.0
-P_PAD_Y = 8.0
-P_PAD_Z = 2.8
+# Rectangular lintel on the inner frame above each pipe end: flush with the
+# inner wall, not a tab sticking into the media opening.
+P_PAD_X = 16.0
+P_PAD_Z = 3.6
+P_PAD_DEPTH = 6.0
 # Recess media so the pipes sit just above the pleats, still under the 37.5 envelope.
 P_MEDIA_TOP = P_H - 6.8
 
@@ -349,30 +350,35 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
-def _handle_pads(y_wall: float, toward_center: float) -> cq.Workplane:
-    """Rectangular support plates on top of each pipe end, flush with the frame top."""
+def _pipe_entry_pockets(inner_w: float, pipe_z: float) -> cq.Workplane:
+    """Cut the inner wall under a flush rectangular lintel at each pipe end.
+
+    The remaining top of the wall is the rectangular support face: aligned with
+    the inner frame, nothing sticking into the opening.
+    """
     half = P_PIPE_LEN / 2.0
-    # Straddle the inner face: plate is visible from above on the inner rim.
-    y_c = y_wall + toward_center * (P_PAD_Y / 2.0 - 1.2)
-    z0 = P_H - P_PAD_Z
-    pads = None
-    for x in (-half, half):
-        pad = (
-            cq.Workplane("XY")
-            .workplane(offset=z0)
-            .center(x, y_c)
-            .rect(P_PAD_X, P_PAD_Y)
-            .extrude(P_PAD_Z)
-        )
-        pads = pad if pads is None else pads.union(pad)
-    return pads
+    z0 = pipe_z - P_PIPE_R - 1.2
+    z_h = (P_H - P_PAD_Z) - z0
+    cuts = None
+    for y_wall, toward in ((inner_w / 2.0, -1.0), (-inner_w / 2.0, 1.0)):
+        y_c = y_wall - toward * (P_PAD_DEPTH / 2.0)
+        for x in (-half, half):
+            cut = (
+                cq.Workplane("XY")
+                .workplane(offset=z0)
+                .center(x, y_c)
+                .rect(P_PAD_X, P_PAD_DEPTH)
+                .extrude(z_h)
+            )
+            cuts = cut if cuts is None else cuts.union(cut)
+    return cuts
 
 
 def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplane:
     """Circular-section U-pipe on the media face.
 
-    Pipe ends go into the inner wall; the long bar sits inward over the media.
-    Rectangular plates sit on top of the two wall joints.
+    Pipe ends go into the inner wall under a flush rectangular lintel.
+    The long bar sits inward over the media.
     """
     half = P_PIPE_LEN / 2.0
     cr = P_PIPE_CORNER
@@ -380,7 +386,7 @@ def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplan
     y_bar = y_wall + toward_center * P_PIPE_DEPTH
     toward_open = -toward_center
     y_arc = y_bar + toward_open * cr
-    y_end = y_wall - toward_center * 1.5
+    y_end = y_wall - toward_center * (P_PAD_DEPTH - 1.5)
     long_bar = _round_bar((-half + cr, y_bar, z), (half - cr, y_bar, z), r)
     left_leg = _round_bar((-half, y_end, z), (-half, y_arc, z), r)
     right_leg = _round_bar((half, y_end, z), (half, y_arc, z), r)
@@ -391,8 +397,7 @@ def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplan
         left_dir, right_dir = (-1.0, 0.0), (0.0, -1.0)
     left_e = _pipe_elbow_xy(-half + cr, y_bar + toward_open * cr, z, left_dir, cr, r)
     right_e = _pipe_elbow_xy(half - cr, y_bar + toward_open * cr, z, right_dir, cr, r)
-    pads = _handle_pads(y_wall, toward_center)
-    return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e).union(pads)
+    return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e)
 
 
 def build_p633484() -> cq.Assembly:
@@ -547,9 +552,10 @@ def build_p633484() -> cq.Assembly:
     glue = _union(beads)
 
     # Two circular-pipe U handles on the long inner edges.
-    # Ends in the wall under rectangular top plates; long bar toward the media.
-    pipe_z = P_H - P_PAD_Z + 0.5 - P_PIPE_R
+    # Pipe ends go under a rectangular lintel that is flush with the inner frame.
+    pipe_z = P_H - P_PAD_Z - P_PIPE_R
     y_wall = inner_w / 2.0
+    frame = frame.cut(_pipe_entry_pockets(inner_w, pipe_z))
     handles = _pipe_u_handle(y_wall, -1.0, pipe_z).union(
         _pipe_u_handle(-y_wall, 1.0, pipe_z)
     )
