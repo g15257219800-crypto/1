@@ -70,10 +70,10 @@ P_PIPE_R = 2.0
 P_PIPE_LEN = 88.0
 P_PIPE_DEPTH = 22.0
 P_PIPE_CORNER = 6.0
-# Rectangular pads where each pipe end meets the inner wall.
-P_PAD_X = 12.0
-P_PAD_Y = 3.6
-P_PAD_Z = 6.5
+# Rectangular plates sit on top of each pipe-to-wall joint, flush with the frame top.
+P_PAD_X = 14.0
+P_PAD_Y = 8.0
+P_PAD_Z = 2.8
 # Recess media so the pipes sit just above the pleats, still under the 37.5 envelope.
 P_MEDIA_TOP = P_H - 6.8
 
@@ -349,12 +349,12 @@ def build_dba5293() -> cq.Assembly:
     return assy
 
 
-def _handle_pads(y_wall: float, toward_center: float, z: float) -> cq.Workplane:
-    """Rectangular support faces on the inner wall at each pipe end."""
+def _handle_pads(y_wall: float, toward_center: float) -> cq.Workplane:
+    """Rectangular support plates on top of each pipe end, flush with the frame top."""
     half = P_PIPE_LEN / 2.0
-    # Straddle the inner face: most of the pad in the opening, a little into the wall.
+    # Straddle the inner face: plate is visible from above on the inner rim.
     y_c = y_wall + toward_center * (P_PAD_Y / 2.0 - 1.2)
-    z0 = z - P_PAD_Z / 2.0
+    z0 = P_H - P_PAD_Z
     pads = None
     for x in (-half, half):
         pad = (
@@ -372,7 +372,7 @@ def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplan
     """Circular-section U-pipe on the media face.
 
     Pipe ends go into the inner wall; the long bar sits inward over the media.
-    Rectangular pads support the two wall joints.
+    Rectangular plates sit on top of the two wall joints.
     """
     half = P_PIPE_LEN / 2.0
     cr = P_PIPE_CORNER
@@ -391,7 +391,7 @@ def _pipe_u_handle(y_wall: float, toward_center: float, z: float) -> cq.Workplan
         left_dir, right_dir = (-1.0, 0.0), (0.0, -1.0)
     left_e = _pipe_elbow_xy(-half + cr, y_bar + toward_open * cr, z, left_dir, cr, r)
     right_e = _pipe_elbow_xy(half - cr, y_bar + toward_open * cr, z, right_dir, cr, r)
-    pads = _handle_pads(y_wall, toward_center, z)
+    pads = _handle_pads(y_wall, toward_center)
     return long_bar.union(left_leg).union(right_leg).union(left_e).union(right_e).union(pads)
 
 
@@ -547,8 +547,8 @@ def build_p633484() -> cq.Assembly:
     glue = _union(beads)
 
     # Two circular-pipe U handles on the long inner edges.
-    # Ends in the wall (on rectangular pads); long bar toward the media center.
-    pipe_z = P_H - 3.5
+    # Ends in the wall under rectangular top plates; long bar toward the media.
+    pipe_z = P_H - P_PAD_Z + 0.5 - P_PIPE_R
     y_wall = inner_w / 2.0
     handles = _pipe_u_handle(y_wall, -1.0, pipe_z).union(
         _pipe_u_handle(-y_wall, 1.0, pipe_z)
