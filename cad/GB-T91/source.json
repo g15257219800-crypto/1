@@ -2,28 +2,32 @@
   "part": "开口销",
   "standard": "GB/T 91-2000",
   "equivalent": ["ISO 1234:1997", "DIN EN ISO 1234", "DIN 94"],
-  "catalog_size": "0.6×4",
-  "marking_example": "GB/T 91 0.6×4",
+  "requested": {"nominal_diameter_mm": 2},
+  "catalog_size": "2×10",
+  "marking": "GB/T 91 2×10",
+  "dimensions_mm": {
+    "d_max": 1.8,
+    "d_min": 1.7,
+    "L": 10,
+    "a_max": 2.5,
+    "a_min": 1.25,
+    "b_approx": 4,
+    "c_max": 3.6,
+    "c_min": 3.2
+  },
   "geometry": {
-    "source": "易紧通 YJT 标准件三维库（CATIA STL）",
-    "viewer": "https://3d.164580.com/761/",
-    "file": "https://3d.164580.com/file/761",
-    "header": "solid CATIA STL",
-    "triangles": 2372,
-    "envelope_mm": {
-      "x": 7.597,
-      "y": 0.500,
-      "z": 0.997
-    },
-    "note": "易紧通 GB/T 91 页默认三维为目录规格 0.6×4（与尺寸图 L=4、dmax=0.5、cmax=1.0 一致）。未自行建模。"
+    "source": "PartsCAD / 易紧通 标准件三维库",
+    "part_number": "GBT91_2X10",
+    "viewer": "https://3d.partscad.com/3dtree/?mo_id=MjMzNzQ5",
+    "mesh": "https://3d.partscad.com/model/2023/11/16/233749/partscad6e0c0054f32040a49ea0fe3a877cd291.json",
+    "page": "https://www.partscad.com/standard/detail.php?sid=MTEzMQ_c_c&x=52718",
+    "triangles": 1446,
+    "envelope_mm": {"x": 16.477, "y": 1.798, "z": 3.587},
+    "note": "未自行建模。公称直径 2 mm 对应销孔；销体 d=1.7–1.8 mm。"
   },
   "drawings": {
-    "schematic": "https://img.164580.com/upload/48/pic_cadpara/622_zh.png",
-    "size_0.6x4": "https://imgt.164580.com/upload/48/pic_cadpara/1131/1131cc52713c52729zh.png"
+    "size_2x10": "https://imgt.164580.com/upload/48/pic_cadpara/1131/1131cc52718c52733zh.png",
+    "schematic": "https://img.164580.com/upload/48/pic_cadpara/622_zh.png"
   },
-  "pages": {
-    "yjt": "https://www.164580.com/standard_1131.html",
-    "partscad": "https://www.partscad.com/standard/detail.php?sid=MTEzMQ_c_c",
-    "traceparts": "https://www.traceparts.com/en/product/gb-split-pins-gbt-91-2000?CatalogPath=TRACEPARTS%3ATP01001008002&Product=50-04032014-106319"
-  }
+  "also_in_folder": ["GB/T 91 0.6×4 易紧通默认规格"]
 }
