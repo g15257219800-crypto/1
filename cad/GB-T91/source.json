@@ -1,0 +1,29 @@
+{
+  "part": "开口销",
+  "standard": "GB/T 91-2000",
+  "equivalent": ["ISO 1234:1997", "DIN EN ISO 1234", "DIN 94"],
+  "catalog_size": "0.6×4",
+  "marking_example": "GB/T 91 0.6×4",
+  "geometry": {
+    "source": "易紧通 YJT 标准件三维库（CATIA STL）",
+    "viewer": "https://3d.164580.com/761/",
+    "file": "https://3d.164580.com/file/761",
+    "header": "solid CATIA STL",
+    "triangles": 2372,
+    "envelope_mm": {
+      "x": 7.597,
+      "y": 0.500,
+      "z": 0.997
+    },
+    "note": "易紧通 GB/T 91 页默认三维为目录规格 0.6×4（与尺寸图 L=4、dmax=0.5、cmax=1.0 一致）。未自行建模。"
+  },
+  "drawings": {
+    "schematic": "https://img.164580.com/upload/48/pic_cadpara/622_zh.png",
+    "size_0.6x4": "https://imgt.164580.com/upload/48/pic_cadpara/1131/1131cc52713c52729zh.png"
+  },
+  "pages": {
+    "yjt": "https://www.164580.com/standard_1131.html",
+    "partscad": "https://www.partscad.com/standard/detail.php?sid=MTEzMQ_c_c",
+    "traceparts": "https://www.traceparts.com/en/product/gb-split-pins-gbt-91-2000?CatalogPath=TRACEPARTS%3ATP01001008002&Product=50-04032014-106319"
+  }
+}
