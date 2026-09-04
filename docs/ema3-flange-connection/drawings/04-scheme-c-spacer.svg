@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620">
+  <rect width="100%" height="100%" fill="#f7f4ea"/>
+  <style>
+    .t { font-family: "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans", sans-serif; fill: #1a1a1a; }
+    .dim { font-family: "Noto Sans", sans-serif; font-size: 12px; fill: #1a4a7a; }
+    .title { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 13px; fill: #444; }
+    .note { font-size: 12px; fill: #333; }
+    .stroke { fill: none; stroke: #1a1a1a; stroke-width: 1.6; }
+    .thin { fill: none; stroke: #1a1a1a; stroke-width: 1.0; }
+    .hid { fill: none; stroke: #666; stroke-width: 0.9; stroke-dasharray: 5 3; }
+    .center { fill: none; stroke: #8a2f2f; stroke-width: 0.7; stroke-dasharray: 8 3 2 3; }
+    .diml { fill: none; stroke: #1a4a7a; stroke-width: 0.8; }
+    .fill-steel { fill: #c9c4b6; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-body { fill: #8a8f7a; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-cap { fill: #d4a017; stroke: #1a1a1a; stroke-width: 1.3; }
+    .fill-or { fill: #3d6b4f; stroke: #1a1a1a; stroke-width: 1.0; }
+    .fill-fluid { fill: #cfe6f2; stroke: #2a5f7a; stroke-width: 0.8; }
+    .fill-plate { fill: #b7c4c8; stroke: #1a1a1a; stroke-width: 1.4; }
+  </style>
+  
+  <text class="t title" x="40" y="40">方案 C 装配图 — ISO 6162 测压隔板</text>
+  <text class="t sub" x="40" y="62">隔板夹在两法兰之间。主密封仍用原法兰头 O 形圈；隔板两侧为平面。侧面安装 EMA3。</text>
+
+  <!-- left flange head -->
+  <rect class="fill-steel" x="80" y="110" width="70" height="220"/>
+  <rect class="fill-or" x="142" y="170" width="8" height="100"/>
+  <text class="t note" x="86" y="100">法兰头（带 O 形圈槽）</text>
+
+  <!-- spacer -->
+  <rect class="fill-plate" x="150" y="130" width="90" height="180"/>
+  <text class="t note" x="162" y="122">测压隔板</text>
+  <rect class="fill-fluid" x="80" y="200" width="250" height="40"/>
+
+  <!-- right flange -->
+  <rect class="fill-steel" x="240" y="110" width="90" height="220"/>
+  <rect class="fill-or" x="240" y="170" width="8" height="100"/>
+  <text class="t note" x="250" y="100">对侧法兰 / 油口垫</text>
+
+  <!-- bolts -->
+  <rect x="70" y="130" width="280" height="12" fill="#5c5c5c" stroke="#1a1a1a"/>
+  <rect x="70" y="298" width="280" height="12" fill="#5c5c5c" stroke="#1a1a1a"/>
+  <text class="t note" x="360" y="142">加长螺栓</text>
+  <text class="t note" x="360" y="310">对角拧紧</text>
+
+  <!-- EMA3 down -->
+  <rect class="fill-body" x="172" y="310" width="46" height="80"/>
+  <circle class="fill-cap" cx="195" cy="408" r="16"/>
+  <text class="t note" x="226" y="360">EMA3</text>
+  <text class="t note" x="226" y="378">M16×2</text>
+
+  <!-- split clamps hint -->
+  <text class="t note" x="80" y="450">FHS 对开法兰夹 + 4 条 12.9 级螺栓。隔板厚度计入螺栓长度：L = 原长 + t + 垫圈补偿。</text>
+  <text class="t note" x="80" y="472">隔板两面平面度 0.03 / 100，Ra ≤ 1.6 μm，无划伤。O 形圈留在法兰头槽内，隔板不开槽（配置 C1）。</text>
+  <text class="t note" x="80" y="494">若两侧都是平面油口垫，则隔板两面按 ISO 6162 开 O 形圈槽（配置 C2）。</text>
+  <text class="t note" x="80" y="530">板厚 t ≥ 30（M14 ISO 6149）或 t ≥ 26（G1/4 ED），保证侧面 spotface 完整、全螺纹足够。</text>
+  <text class="t note" x="80" y="552">测压口开在螺栓矩形的长边中点，避开螺栓头与对开夹。</text>
+  <text class="t note" x="80" y="574">小通径 1/2″：优先 G1/4 ED 或把板厚做到 32，油口仍放长边。</text>
+
+</svg>

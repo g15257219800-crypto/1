@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500">
+  <rect width="100%" height="100%" fill="#f7f4ea"/>
+  <style>
+    .t { font-family: "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans", sans-serif; fill: #1a1a1a; }
+    .dim { font-family: "Noto Sans", sans-serif; font-size: 12px; fill: #1a4a7a; }
+    .title { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 13px; fill: #444; }
+    .note { font-size: 12px; fill: #333; }
+    .stroke { fill: none; stroke: #1a1a1a; stroke-width: 1.6; }
+    .thin { fill: none; stroke: #1a1a1a; stroke-width: 1.0; }
+    .hid { fill: none; stroke: #666; stroke-width: 0.9; stroke-dasharray: 5 3; }
+    .center { fill: none; stroke: #8a2f2f; stroke-width: 0.7; stroke-dasharray: 8 3 2 3; }
+    .diml { fill: none; stroke: #1a4a7a; stroke-width: 0.8; }
+    .fill-steel { fill: #c9c4b6; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-body { fill: #8a8f7a; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-cap { fill: #d4a017; stroke: #1a1a1a; stroke-width: 1.3; }
+    .fill-or { fill: #3d6b4f; stroke: #1a1a1a; stroke-width: 1.0; }
+    .fill-fluid { fill: #cfe6f2; stroke: #2a5f7a; stroke-width: 0.8; }
+    .fill-plate { fill: #b7c4c8; stroke: #1a1a1a; stroke-width: 1.4; }
+  </style>
+  
+  <text class="t title" x="40" y="40">方案 D / E — 标准件转接与管法兰焊接凸台</text>
+
+  <rect x="36" y="70" width="430" height="250" rx="8" fill="#fff" stroke="#1a1a1a"/>
+  <text class="t" x="52" y="98" font-size="15" font-weight="700">D1  法兰 → BSPP 内螺纹块  →  EMA3</text>
+  <text class="t note" x="52" y="124">派克 PFF-G（SAE 四螺栓法兰 + G 内螺纹）</text>
+  <text class="t note" x="52" y="146">再配变径 RI-ED 或直接选带 G1/4 侧口的阀块。</text>
+  <text class="t note" x="52" y="176">D2  法兰 → EO 24°（GFS）→ 管路测压接头 GMA3</text>
+  <text class="t note" x="52" y="198">GMA3 串在硬管中间，测压端仍为 M16×2，与 EMA3 同一软管体系。</text>
+  <text class="t note" x="52" y="228">D3  法兰软管接头旁路三通（ORFS / 37°）+ 诊断接头</text>
+  <text class="t note" x="52" y="250">派克诊断三通可适配 EMA3 / PD。适合软管总成。</text>
+  <text class="t note" x="52" y="282">特点：零机加。压力等级取转接头与 EMA3 的较低值。</text>
+
+  <rect x="490" y="70" width="430" height="250" rx="8" fill="#fff" stroke="#1a1a1a"/>
+  <text class="t" x="506" y="98" font-size="15" font-weight="700">方案 E  GB / HG 管法兰焊接凸台</text>
+  <rect class="fill-steel" x="530" y="130" width="160" height="28"/>
+  <rect class="fill-steel" x="560" y="158" width="100" height="70"/>
+  <circle class="fill-body" cx="700" cy="193" r="22"/>
+  <circle class="fill-cap" cx="748" cy="193" r="14"/>
+  <rect class="fill-fluid" x="560" y="180" width="140" height="16"/>
+  <text class="t note" x="506" y="250">在法兰颈或短节上焊接 ISO 6149 螺纹凸台</text>
+  <text class="t note" x="506" y="270">（或预制带测压口的法兰短节）。</text>
+  <text class="t note" x="506" y="294">焊后热处理按母材；油口焊后再精加工。</text>
+
+  <text class="t note" x="40" y="360">压力匹配：EMA3 最高 630 bar，但法兰侧常为 PN16/25/40 或 SAE Code 61（210–350 bar）/ Code 62（420 bar）。</text>
+  <text class="t note" x="40" y="382">整个测压支路的许用压力 = min(法兰额定、转接头额定、EMA3 该螺纹规格额定、软管 SMA3 额定)。</text>
+  <text class="t note" x="40" y="404">带压插接上限 400 bar（EMA3 螺纹耦合）。工作中防尘帽必须拧紧，振动场合用自锁金属帽。</text>
+  <text class="t note" x="40" y="440">禁止：锥管螺纹（NPT/PT）作为高压液压诊断口；禁止把 EMA3 直接焊在法兰上；禁止密封胶代替 O 形圈 / ED 圈。</text>
+  <text class="t note" x="40" y="462">介质：矿物油液压液与 NBR 匹配；磷酸酯 / 高温选 71 不锈钢 + FKM。</text>
+
+</svg>

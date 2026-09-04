@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620">
+  <rect width="100%" height="100%" fill="#f7f4ea"/>
+  <style>
+    .t { font-family: "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans", sans-serif; fill: #1a1a1a; }
+    .dim { font-family: "Noto Sans", sans-serif; font-size: 12px; fill: #1a4a7a; }
+    .title { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 13px; fill: #444; }
+    .note { font-size: 12px; fill: #333; }
+    .stroke { fill: none; stroke: #1a1a1a; stroke-width: 1.6; }
+    .thin { fill: none; stroke: #1a1a1a; stroke-width: 1.0; }
+    .hid { fill: none; stroke: #666; stroke-width: 0.9; stroke-dasharray: 5 3; }
+    .center { fill: none; stroke: #8a2f2f; stroke-width: 0.7; stroke-dasharray: 8 3 2 3; }
+    .diml { fill: none; stroke: #1a4a7a; stroke-width: 0.8; }
+    .fill-steel { fill: #c9c4b6; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-body { fill: #8a8f7a; stroke: #1a1a1a; stroke-width: 1.4; }
+    .fill-cap { fill: #d4a017; stroke: #1a1a1a; stroke-width: 1.3; }
+    .fill-or { fill: #3d6b4f; stroke: #1a1a1a; stroke-width: 1.0; }
+    .fill-fluid { fill: #cfe6f2; stroke: #2a5f7a; stroke-width: 0.8; }
+    .fill-plate { fill: #b7c4c8; stroke: #1a1a1a; stroke-width: 1.4; }
+  </style>
+  
+  <text class="t title" x="40" y="36">测压隔板零件图（ISO 6162-1 Code 61 示例）</text>
+  <text class="t sub" x="40" y="56">示意 DN25 / 1″。其余通径按附表改螺栓距与内孔。材料 42CrMo4 调质或 316L。</text>
+
+  <!-- top view plate -->
+  <rect class="fill-plate" x="80" y="90" width="280" height="220" rx="10"/>
+  <circle class="fill-fluid" cx="220" cy="200" r="36"/>
+  <circle class="thin" cx="140" cy="140" r="7"/>
+  <circle class="thin" cx="300" cy="140" r="7"/>
+  <circle class="thin" cx="140" cy="260" r="7"/>
+  <circle class="thin" cx="300" cy="260" r="7"/>
+  <line class="center" x1="220" y1="90" x2="220" y2="310"/>
+  <line class="center" x1="80" y1="200" x2="360" y2="200"/>
+
+  <!-- diagnostic port on long side -->
+  <circle class="thin" cx="360" cy="200" r="14"/>
+  <line class="hid" x1="256" y1="200" x2="360" y2="200"/>
+  <text class="t note" x="368" y="196">测压口</text>
+  <text class="t note" x="368" y="214">M14×1.5</text>
+
+  <line class="diml" x1="140" y1="330" x2="300" y2="330"/>
+  <text class="dim" x="190" y="348">a = 52.4（1″ Code 61）</text>
+  <line class="diml" x1="60" y1="140" x2="60" y2="260"/>
+  <text class="dim" x="18" y="206">b=26.2</text>
+  <line class="diml" x1="80" y1="80" x2="360" y2="80"/>
+  <text class="dim" x="170" y="74">外形 ≈ 72 × 62</text>
+
+  <!-- side view -->
+  <rect class="fill-plate" x="520" y="120" width="200" height="90"/>
+  <rect class="fill-fluid" x="520" y="150" width="200" height="30"/>
+  <rect class="fill-fluid" x="700" y="155" width="70" height="20"/>
+  <text class="t note" x="520" y="110">侧视（厚度方向）</text>
+  <line class="diml" x1="500" y1="120" x2="500" y2="210"/>
+  <text class="dim" x="430" y="172">t = 32</text>
+  <text class="t note" x="540" y="230">两面平面，无 O 形圈槽（配置 C1）</text>
+
+  <!-- notes box -->
+  <rect x="40" y="380" width="880" height="210" rx="6" fill="#fff" stroke="#1a1a1a"/>
+  <text class="t" x="56" y="408" font-size="14" font-weight="700">加工与检验要点</text>
+  <text class="t note" x="56" y="434">1. 内孔与法兰通径一致或略大 0.5 mm，锐边倒钝 R0.3，与侧孔相交处必须去毛刺。</text>
+  <text class="t note" x="56" y="458">2. 四螺栓孔按 ISO 6162-1，孔距公差 ±0.25，与端面垂直度 0.1。</text>
+  <text class="t note" x="56" y="482">3. 测压口用 ISO 6149 成形刀；轴线通过内孔中心，偏移 ≤ 0.2 mm。</text>
+  <text class="t note" x="56" y="506">4. 密封面：两侧法兰贴合面 Ra ≤ 1.6 μm，平面度 0.03 mm，禁止贯穿划伤。</text>
+  <text class="t note" x="56" y="530">5. 钢件表面镀锌无六价铬（与派克 CF 体系一致）或发黑；不锈钢酸洗钝化。</text>
+  <text class="t note" x="56" y="554">6. 试压：隔板装配后按系统 1.5 倍工作压力保压，测压口用原装防尘帽拧紧。</text>
+  <text class="t note" x="56" y="578">7. 螺栓强度 12.9，按对角、分步拧到 ISO 6162 规定扭矩；隔板加厚后复核螺栓工作长度。</text>
+
+</svg>
